@@ -28,7 +28,6 @@ namespace Server.Custom.Combat
         private const long PostSwingMs = 1000;      // após o golpe (acerto/erro), passa o turno
         private const int LeashTiles = 20;
         private const double FleeChance = 0.55;
-        private const int EnemyTurnSound = 0x5B6;
         private const double MutedSpeed = 100.0;
         private const double MobDefenseDuringPlayerTurn = 30.0;
         private const int DefendBonus = 25; // +resist em todos os tipos ao Defender
@@ -216,6 +215,7 @@ namespace Server.Custom.Combat
             AOS.Damage(p, _mob, dmg, 100, 0, 0, 0, 0);
 
             p.Freeze(TimeSpan.FromSeconds(0.4)); // pausa curta, depois libera o movimento
+            TurnFx.Opportunity(p);
 
             Log(0x22, $"Oportunidade em {p.Name}: -{dmg}");
             return true;
@@ -264,7 +264,12 @@ namespace Server.Custom.Combat
 
             if (p.Weapon is BaseWeapon weapon)
             {
+                var before = _mob.Hits;
                 weapon.OnSwing(p, _mob);
+                if (_mob.Hits < before)
+                {
+                    TurnFx.Impact(_mob);
+                }
             }
 
             MarkActed(p);
@@ -289,6 +294,7 @@ namespace Server.Custom.Combat
             }
 
             ApplyDefense(p);
+            TurnFx.Defend(p);
             Log(0x3F, $"{p.Name} defendeu (+{DefendBonus} resist).");
             MarkActed(p);
         }
@@ -459,6 +465,7 @@ namespace Server.Custom.Combat
             if (Utility.RandomDouble() < FleeChance)
             {
                 p.SendMessage(0x40, "Voce conseguiu fugir do combate!");
+                TurnFx.FleeSuccess(p);
                 RemovePlayer(p);
 
                 if (_players.Count == 0)
@@ -562,6 +569,7 @@ namespace Server.Custom.Combat
 
             _phaseEndTick = Core.TickCount + (long)PlayerTurnTimeout.TotalMilliseconds;
             Log(0x3F, ">> Sua vez");
+            ShowBanner(true);
         }
 
         private void BeginEnemyTurn()
@@ -596,13 +604,10 @@ namespace Server.Custom.Combat
             _mobActFrom = Core.TickCount + MobLeadInMs; // espera o "beat" antes de mover/golpear
             _nextMobStep = _mobActFrom;
 
-            if (target != null)
-            {
-                Effects.PlaySound(target.Location, target.Map, EnemyTurnSound);
-            }
-
             _phaseEndTick = Core.TickCount + EnemyTurnTotalMs;
             Log(0x25, ">> Turno do inimigo");
+            ShowBanner(false);
+            TurnFx.Windup(_mob); // telegrafia: durante o "beat" o mob carrega o golpe (jogador vê vindo)
         }
 
         private void PursueStep()
@@ -633,7 +638,12 @@ namespace Server.Custom.Combat
                 {
                     if (_mob.Weapon is BaseWeapon w)
                     {
+                        var before = target.Hits;
                         w.OnSwing(_mob, target);
+                        if (target.Hits < before)
+                        {
+                            TurnFx.Impact(target);
+                        }
                     }
 
                     _mobSwung = true;
@@ -755,6 +765,7 @@ namespace Server.Custom.Combat
                 p.NextCombatTime = Core.TickCount; // restaura combate normal
                 p.CloseGump<TurnHudGump>();
                 p.CloseGump<TurnActionPickerGump>();
+                p.CloseGump<TurnBannerGump>();
             }
         }
 
@@ -786,6 +797,22 @@ namespace Server.Custom.Combat
         {
             _lastKey = null;
             RefreshHud();
+        }
+
+        // Banner de turno (splash) + som de virada. Fica ATIVO durante todo o turno; é trocado só na virada
+        // (Singleton: o CloseGump+SendGump substitui o anterior). Fechado ao sair do combate / encerrar.
+        private void ShowBanner(bool playersTurn)
+        {
+            foreach (var p in _players)
+            {
+                if (p is not { Deleted: false })
+                {
+                    continue;
+                }
+
+                p.CloseGump<TurnBannerGump>();
+                p.SendGump(new TurnBannerGump(playersTurn));
+            }
         }
 
         private void RefreshHud()
@@ -862,6 +889,7 @@ namespace Server.Custom.Combat
                     p.NextCombatTime = Core.TickCount; // restaura combate normal
                     p.CloseGump<TurnHudGump>();
                     p.CloseGump<TurnActionPickerGump>();
+                    p.CloseGump<TurnBannerGump>();
                     p.SendMessage(0x40, "*** Combate por turnos encerrado ***");
                 }
             }
