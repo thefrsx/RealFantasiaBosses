@@ -1,135 +1,152 @@
-# Real Fantasia Bosses
+# Real Fantasia — ModernUO Content Module
 
-Módulo "plug and play" para **ModernUO** que reúne todas as mecânicas custom do shard
-**Real Fantasia**: bosses com fases e habilidades aprendíveis, efeitos visuais (FX) de área,
-combate por turnos, designer de criaturas in-game (Monster In A Box), ferramentas de GM e
-algumas conveniências de desenvolvimento.
+> A gameplay content module for **[ModernUO](https://github.com/modernuo/ModernUO)**, a modern C#/.NET
+> server emulator for *Ultima Online*. It adds a data-driven **boss mechanics framework**, a
+> **turn-based combat prototype**, an **in-game creature designer**, and a suite of in-game tools —
+> all loaded as a single hot-swappable `.dll`, with **zero changes to the engine**.
 
-O módulo é um projeto C# independente (`RealFantasiaBosses.csproj`) que compila para a DLL
-`RealFantasiaBosses.dll`. Como o ModernUO carrega DLLs (não há pasta `Scripts` em runtime
-como no ServUO), o módulo é distribuído como **DLL pronta** ou como **pasta-fonte** para
-recompilar. Veja `INSTALL.md`.
-
-- **TargetFramework:** `net10.0`
-- **Referências de projeto:** `..\Server\Server.csproj`, `..\UOContent\UOContent.csproj`
-- **Pacotes:** `ModernUO.Serialization.Annotations` 2.14.2, `ModernUO.Serialization.Generator` 2.14.3
-- O `.csproj` não contém nenhum caminho absoluto; é idêntico ao padrão dos outros projetos
-  do repositório (ex.: `InteractiveBoss`), portanto pode ser jogado em qualquer `Projects\`.
+<p>
+  <img alt=".NET 10" src="https://img.shields.io/badge/.NET-10-512BD4?logo=dotnet&logoColor=white">
+  <img alt="C#" src="https://img.shields.io/badge/C%23-12-239120?logo=csharp&logoColor=white">
+  <img alt="ModernUO" src="https://img.shields.io/badge/ModernUO-module-8A2BE2">
+  <img alt="Status" src="https://img.shields.io/badge/status-active%20WIP-orange">
+</p>
 
 ---
 
-## Sistemas inclusos
+## Why this project
 
-### 1. Bosses (`Boss/`)
-Framework de bosses com habilidades catalogadas, controlador de encontro, lacaios e gump de
-aviso (telegraph) para mecânicas aprendíveis estilo WoW/Outlands.
+I build and run a private *Ultima Online* shard ("Real Fantasia") on the ModernUO server. Rather than
+forking the engine, I designed everything in this repo as a **self-contained module**: a separate C#
+project that compiles to one DLL and drops into the server's `Projects/` (or `Assemblies/`) folder.
+The server discovers the new commands, items, and creatures automatically at startup.
 
-- `BossController` — orquestra o encontro do boss.
-- `RFBoss` / `RFBossTest` — classe base de boss (`BaseCreature`) e boss de teste.
-- `RFBossAbility` — definição de uma habilidade de boss.
-- `BossCatalog` — catálogo com **33 mecânicas** (Sopro Flamejante, Muralha de Fogo, Nova
-  Ardente, Chuva de Meteoros, Ninhada de Aranhas, Firebolt, Investida, Medo, Geiser, Bomba
-  Ambulante, Chuva Toxica, Esporos Toxicos, Estalagmites, Agarrar, Arremessar Rocha,
-  Explosivo, Barril Explosivo, Rajada de Projeteis, Tempestade de Raios, Explosao Flamejante,
-  Tempestade Furiosa, Nevasca, Choque, Teia, Prisao de Gelo, Emboscada, Invocar Lacaios,
-  Curar Aliados, Golpe Elemental, Golpe em Area, etc.).
-- `ImportedAbilities`..`ImportedAbilities6` — implementações das habilidades importadas.
-- `BossAbilities` — habilidades adicionais.
-- `BossMinion` — lacaio invocável (`BaseCreature`).
-- Gumps: `BossWarningGump`, `BossLoaderGump`, `BossLoadTestGump`.
-- Mob de teste: `TestBossMob` (`[add TestBossMob`).
+The interesting part for an engineer isn't the game — it's the constraints:
 
-### 2. Efeitos / FX (`Effect/`)
-Motor de efeitos de área (telegraphs no chão) reutilizável pelas mecânicas dos bosses.
+- **No engine edits.** Every feature is built on the public `Server` / `UOContent` API. The turn-based
+  combat system, for example, runs entirely on existing primitives (`Mobile.Frozen`, combat timers,
+  vetoable movement events) instead of patching the real-time combat loop.
+- **Server-authoritative, thin client.** The client only knows how to *draw*. All game logic, state,
+  and timing live on the server, which streams UI ("gump") definitions and effect packets to the client.
+- **Soft-realtime.** Boss telegraphs, damage-over-time pools, and phase transitions are driven by
+  300 ms timer ticks across many concurrent encounters — so the code has to be cheap per tick and
+  resilient to entities dying or disconnecting mid-effect.
 
-- `AreaEffectEngine`, `AreaShapes`, `TileFx` — engine e formas (linha, cone, nova, etc.).
-- `FireConeEffect`, `FireLineEffect`, `FireNovaEffect`, `MeteorEffect`, `SpiderEggEffect`.
-- `SpiderEgg` (`Mobile/`) — ovo de aranha que eclode.
+## Highlights (what to look at)
 
-### 3. Combate por turnos (`Combat/`, `Gump/`, `Mobile/`)
-Protótipo de combate 1v1 por turnos ao vivo.
-
-- `TurnEncounter` — máquina de estado do encontro por turnos.
-- `TurnHudGump`, `TurnActionPickerGump` — HUD e seletor de ação.
-- `TurnBasedTestMob` — mob de teste (`[add TurnBasedTestMob`).
-
-### 4. Monster In A Box (`MonsterBox/`)
-Designer de criatura in-game via gump.
-
-- `MonsterBoxItem` (`[add MonsterBoxItem`) — item que abre o designer.
-- `MonsterBoxMobile` — a criatura gerada.
-- `MonsterBoxGump` — interface de edição (nome, hue, body, AI, stats, dano, resistências).
-
-### 5. GM Tools
-Duas toolbars de comando de GM, além de utilitários.
-
-- `GMTool/` — toolbar **Ice** (`[GMTool`), com `GMHuePicker` e `GMTravelGump`.
-- `JoekuToolbar/` — toolbar **Joeku** (`[Toolbar`), customizável, com `Recover`/`Rec`,
-  `AddStairs`, `GMbody`, e itens de staff (`StaffOrb`, `StaffRing`, `GMEthereal`,
-  `GMPlateMail`, `GMSash`).
-
-### 6. Utilitários / Comandos de teste
-- `craftskin` — abre `CraftSkinGump`.
-- `animtest` — testador de animações.
-- `fxtest` — menu de teste dos efeitos (`FxTestGump`).
-- `OwnerFix` — **conveniência de dev** (sem comando): timer que roda a cada 2s e garante que
-  a conta de nome `make` permaneça em `AccessLevel.Owner`. O nome da conta está fixo no
-  código (`OwnerFix.cs`); se for usar em outro shard, edite/remova essa classe.
-
----
-
-## Comandos por categoria
-
-> Os comandos abaixo são registrados via `CommandSystem.Register` / `CommandHandlers.Register`.
-> Itens e mobs marcados com `[add ...` são criados pelo comando padrão `[add` do ModernUO.
-
-### Bosses
-| Comando | Acesso | Descrição |
+| Area | What it demonstrates | Entry points |
 |---|---|---|
-| `[bossload` | GameMaster | Abre o gump de carregamento de boss (`BossLoaderGump`). |
-| `[bossloadtest` | GameMaster | Abre o gump de teste de carregamento (`BossLoadTestGump`). |
-| `[add TestBossMob` | (add) | Cria o mob de teste de boss. |
-| `[add BossController` / `[add BossMinion` / `[add RFBoss...` | (add) | Cria componentes do encontro. |
+| **Boss mechanics framework** | Data-driven design, the strategy pattern, an attachable controller over a 300 ms tick loop, telegraph/phase state | `Boss/BossController.cs`, `Boss/RFBossAbility.cs`, `Boss/BossCatalog.cs` |
+| **Turn-based combat** | A finite state machine layered on a real-time engine using only public primitives | `Combat/TurnEncounter.cs` |
+| **Area-effect (FX) engine** | Reusable geometry (line / cone / nova / ring), decoupled from the abilities that use it | `Effect/AreaEffectEngine.cs`, `Effect/AreaShapes.cs` |
+| **In-game tooling** | Building interactive UIs and a CRUD-style editor at runtime | `MonsterBox/`, `Gump/BossLoaderGump.cs` |
 
-### Efeitos / FX
-| Comando | Acesso | Uso |
-|---|---|---|
-| `[firecone` | GameMaster | `firecone <length> [hurt]` |
-| `[fireline` | GameMaster | `fireline <tiles> <directions> [hurt]` |
-| `[firenova` | GameMaster | `firenova <radius> [hurt]` |
-| `[meteor` | GameMaster | `meteor <count> [hurt]` |
-| `[spidereggs` | GameMaster | `spidereggs <count> [hatchSeconds]` |
-| `[fxtest` | GameMaster | Abre o menu de teste de efeitos. |
+### Boss mechanics framework
+A `BossController` can be **attached to any creature at runtime** through an in-game admin UI
+(`[bossload`) — no recompile, no restart. It runs a tick loop that:
 
-### Combate por turnos
-| Comando | Acesso | Descrição |
-|---|---|---|
-| `[add TurnBasedTestMob` | (add) | Cria o mob de combate por turnos. |
+- gates abilities behind **HP-percentage phases** (a mechanic might unlock only below 50% HP),
+- **telegraphs** the next attack (an on-ground pulsing shape, colored by element, plus a warning
+  banner and the boss glowing/shouting) for a configurable window before it fires,
+- only acts **while genuinely in combat** (a valid `Combatant` or someone on the `Aggressors` list —
+  it won't nuke a player just for walking past), and
+- captures its target at the start of the telegraph so the effect survives the AI dropping aggro.
 
-### Monster In A Box
-| Comando | Acesso | Descrição |
-|---|---|---|
-| `[add MonsterBoxItem` | (add) | Cria a caixa designer de criatura. |
+Each ability is a self-describing object (`RFBossAbility`: cooldown, damage, telegraph text/seconds,
+unlock threshold) with a virtual `PaintTelegraph` hook, so a new mechanic is mostly *data*.
 
-### GM Tools
-| Comando | Acesso | Descrição |
-|---|---|---|
-| `[GMTool` | Counselor | Toolbar de GM (Ice). |
-| `[Toolbar` | Counselor | Toolbar de GM (Joeku), customizável. |
-| `[GMbody` | Counselor | Troca de body/forma de staff. |
-| `[Recover` / `[Rec` | GameMaster | Recupera itens. |
-| `[AddStairs` | GameMaster | Construtor de escadas (addon). |
+### Turn-based combat prototype
+`TurnEncounter` is a finite state machine (your turn / enemy turn) that delivers BG-style turn pacing
+**without modifying the engine's real-time combat at all**. It does this by composing existing
+primitives: `Mobile.Frozen` to lock casting/movement/swings, the engine's combat-timing stamps, and a
+*vetoable* movement event to enforce a per-turn movement budget (which also kills "kiting"). Actions
+(attack, potion, scroll, defend, flee) each resolve before the turn passes.
 
-### Utilitários / teste
-| Comando | Acesso | Descrição |
-|---|---|---|
-| `[craftskin` | GameMaster | Abre o `CraftSkinGump`. |
-| `[animtest` | GameMaster | `animtest [start] [end] [intervalSeconds]` |
+### Area-effect engine
+The shapes (`AreaShapes`) and the renderer/damage pass (`AreaEffectEngine`, `TileFx`) are deliberately
+separate from the abilities that consume them, so fire, ice, poison, and energy variants reuse the same
+geometry and only differ in hue and payload.
 
----
+## Tech stack
 
-## Observações importantes
-- A DLL precisa **casar com a versão do ModernUO** (mesma API de `Server`/`UOContent`). Se as
-  versões divergirem, use o **Método B** (pasta-fonte) e recompile. Veja `INSTALL.md`.
-- `OwnerFix.cs` é específico do ambiente do autor (conta `make`). Ajuste antes de distribuir
-  para terceiros.
+- **Language / runtime:** C# 12, .NET 10
+- **Platform:** ModernUO server API (`Server.csproj`, `UOContent.csproj` project references)
+- **Serialization:** `ModernUO.Serialization.Generator` (source generators emit save/load code from
+  `[SerializableField]` attributes — no hand-written persistence)
+- **Build:** `dotnet build` / the ModernUO `publish` toolchain
+
+## Project structure
+
+```
+RealFantasiaBosses/
+├─ Boss/         # Boss framework: controller, ability model, catalog, minions
+├─ Combat/       # Turn-based combat state machine
+├─ Effect/       # Reusable area-effect engine + shapes (FX)
+├─ Gump/         # In-game UI: boss loader, FX test menu, HUDs, editors
+├─ Command/      # [ console commands that register the features
+├─ Mobile/       # Custom creatures (test bosses, hatching spider egg)
+├─ MonsterBox/   # "Monster In A Box" — in-game creature designer
+├─ GMTool/       # Game-master command toolbar (adapted, see Attribution)
+└─ JoekuToolbar/ # Customizable GM toolbar (adapted, see Attribution)
+```
+
+~60 source files. The core authored systems (boss framework, turn combat, FX engine, creature
+designer, gumps) are the parts to review; the two GM toolbars are ports — see **Attribution** below.
+
+## Getting started
+
+> This is a **module**, not a standalone app. It references `..\Server` and `..\UOContent` by relative
+> path, so it builds *inside* a ModernUO checkout. You need a working ModernUO server first.
+
+1. Install the [.NET 10 SDK](https://dotnet.microsoft.com/download) and clone
+   [ModernUO](https://github.com/modernuo/ModernUO).
+2. Drop this folder into the ModernUO tree:
+   ```
+   ModernUO/Projects/RealFantasiaBosses/
+   ```
+3. Build the module:
+   ```bash
+   dotnet build RealFantasiaBosses.csproj -c Release
+   ```
+   The output DLL is placed in `Distribution/Assemblies/` by the ModernUO publish step.
+4. Start the server and try a feature in-game, e.g.:
+   - `[bossload` — attach boss mechanics to any creature
+   - `[add MonsterBoxItem` — open the in-game creature designer
+   - `[fxtest` — preview the area-effect engine
+   - `[add TurnBasedTestMob` — fight the turn-based prototype
+
+Full install notes (including shipping a prebuilt DLL) are in [`INSTALL.md`](INSTALL.md).
+
+## Demo
+
+> 📸 *GIFs of the boss telegraphs, phase transitions, and turn-based HUD go here.* The visual feedback
+> (on-ground telegraph shapes, lingering fire, phase-shift particle bursts) is a core part of the
+> design and is best shown in motion.
+
+## What I focused on
+
+- **Designing for extension over modification** — new bosses and mechanics are added as data/catalog
+  entries, not new control flow.
+- **Working within a large existing codebase and its API** instead of forking it.
+- **Event-driven and timer-driven systems** that stay correct when entities die, disconnect, or lose
+  target mid-effect.
+- **Building runtime UI and editor tooling** so designers can iterate in-game without a rebuild.
+
+## Attribution
+
+This is a personal/portfolio project on top of the open-source **ModernUO** server. In the spirit of
+honest credit:
+
+- **GM toolbars** (`GMTool/`, `JoekuToolbar/`) are ports/adaptations of well-known community scripts
+  (Ice's GM Tool and Joeku's Toolbar) updated from ServUO to the ModernUO API. The framework is theirs;
+  I did the port.
+- A number of boss abilities (`Boss/ImportedAbilities*.cs`) **reimplement the logic** of mechanics from
+  the community "Custom Abilities 3.0" pack on top of *my* `RFBossAbility` framework — the framework and
+  integration are mine; the original mechanic ideas are credited to that pack.
+- The boss framework, turn-based combat system, FX engine, creature designer, and the gump UIs are my
+  own work.
+
+## License
+
+Provided as-is for portfolio and educational purposes. Third-party community scripts retain their
+original licenses/terms (see **Attribution**). ModernUO is licensed separately under its own repository.
