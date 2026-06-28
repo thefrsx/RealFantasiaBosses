@@ -148,5 +148,8 @@ honest credit:
 
 ## License
 
-Provided as-is for portfolio and educational purposes. Third-party community scripts retain their
-original licenses/terms (see **Attribution**). ModernUO is licensed separately under its own repository.
+My original work in this repo (boss framework, turn-based combat, FX engine, creature designer, gumps,
+commands) is released under the **MIT License**. The adapted community scripts (`GMTool/`,
+`JoekuToolbar/`, `Boss/ImportedAbilities*.cs`) are **not** relicensed and retain their original authors'
+terms, and ModernUO is licensed separately in its own repository. See [`LICENSE`](LICENSE) for the full
+breakdown.
